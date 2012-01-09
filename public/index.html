@@ -3,19 +3,30 @@
   <head>
     <script language="javascript">
       var ctx = new webkitAudioContext();
-      function playSound(arrBuff) {
-        var src = ctx.createBufferSource();
-        src.buffer = ctx.createBuffer(arrBuff, false);
-        src.looping = false;
-        src.connect(ctx.destination);
-        src.noteOn(0);
+      var startTime = 0;
+      function playSound(buffer) {
+	
+		console.log(startTime);
+
+		var src = ctx.createBufferSource();
+		src.buffer = buffer;
+		src.looping = false;
+		src.noteOn(startTime);
+		src.connect(ctx.destination);
+
+		startTime += src.buffer.duration;
       }
+
       var ws = new WebSocket('ws://localhost:8080/data');
       ws.binaryType = 'arraybuffer';
       ws.onmessage = function(e) {
-        console.log(e.data.byteLength);
-        playSound(e.data);
+        console.log('About to decode ' + e.data.byteLength + ' bytes MP3 data');
+		ctx.decodeAudioData(e.data, function (buffer) {
+			console.log('Finished decoding');
+			playSound(buffer);			
+		});
       }
+
     </script>
   </head>
   <body>
