@@ -24,21 +24,23 @@ wss.on('connection', function(ws) {
     if (error) {
       console.log('failed to load mp3 file');
     } else {
-      
       console.log('Buffering ' + data.length + ' bytes MP3 data.');
       
       data.copy(buffer, bufferSize, 0);
       bufferSize += data.length;
 
+      // Check whether we are ready to send the buffer.
       if (bufferSize + data.length > MAX_BUFFER) {
         console.log('Sending ' + bufferSize + ' bytes MP3 data.');
 
+        // Create a new buffer to send the data.
         var temp = Buffer(bufferSize);
         buffer.copy(temp, 0, 0, bufferSize);
-        
         ws.send(temp, {binary: true});
+        
         bufferSize = 0;
 
+        // Add the trailing data to the beginning of the the 'new' buffer.
         data.copy(buffer, bufferSize, 0);
         bufferSize += data.length;
       }
