@@ -1,34 +1,100 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
+  <title>HTML5 Web Audio Example</title>
+</head>
+<body>
     <script language="javascript">
-      var ctx = new webkitAudioContext();
-      var startTime = 0;
-      function playSound(buffer) {
-	
-		console.log(startTime);
 
-		var src = ctx.createBufferSource();
-		src.buffer = buffer;
-		src.looping = false;
-		src.noteOn(startTime);
-		src.connect(ctx.destination);
+    function Queue() {
+      var queue  = [];
+      var offset = 0;
 
-		startTime += src.buffer.duration;
+      this.length = function () {
+        return (queue.length - offset);
       }
+
+      this.empty = function () {
+        return (queue.length == 0);
+      }
+
+      this.push = function (item) {
+        queue.push(item);
+      }
+
+      this.pop = function () {
+        if (queue.length == 0) {
+          return undefined;
+        }
+        var item = queue[offset];
+        if (++ offset * 2 >= queue.length) {
+          queue  = queue.slice(offset);
+          offset = 0;
+        }
+        return item;
+      }
+
+      this.peek = function () {
+        return (queue.length > 0 ? queue[offset] : undefined);
+      }
+    }
+
+    var bufferQueue = new Queue();
+    var ctx = new webkitAudioContext();
+
+    function getAudioData(left, right) {
+      if (bufferQueue.empty()) {
+        return;
+      }
+
+      var currentBuffer = bufferQueue.peek();
+      var lsrc = currentBuffer.getChannelData(0);
+      var rsrc = currentBuffer.getChannelData(1);
+      
+      for (var pos = 0; pos < left.length; pos += 1) {
+        left[pos]  = lsrc[currentBuffer.offset];
+        right[pos] = rsrc[currentBuffer.offset];
+        currentBuffer.offset++;
+
+        if (currentBuffer.offset >= currentBuffer.length - 13046) {
+          bufferQueue.pop();
+          if (bufferQueue.empty()) {
+            break;
+          }
+
+          currentBuffer = bufferQueue.peek();
+          lsrc = currentBuffer.getChannelData(0);
+          rsrc = currentBuffer.getChannelData(1);
+        }
+      }
+    }
+    
+    function initWebAudio() {
+      var node = ctx.createJavaScriptNode(4096, 0, 2);
+      node.onaudioprocess = function (event) {
+        getAudioData(event.outputBuffer.getChannelData(0), event.outputBuffer.getChannelData(1));
+      };
+      node.connect(ctx.destination);      
+    }
+
+    function startPlayback() {
+      initWebAudio();
 
       var ws = new WebSocket('ws://localhost:8080/data');
       ws.binaryType = 'arraybuffer';
       ws.onmessage = function(e) {
         console.log('About to decode ' + e.data.byteLength + ' bytes MP3 data');
-		ctx.decodeAudioData(e.data, function (buffer) {
-			console.log('Finished decoding');
-			playSound(buffer);			
-		});
+        ctx.decodeAudioData(e.data, function (buffer) {
+          console.log('Finished decoding');
+          buffer.offset = 2000;
+          bufferQueue.push(buffer);
+        });
       }
+    }
+    
+</script>
 
-    </script>
-  </head>
-  <body>
-  </body>
+<input type="button" value="Start" onclick="startPlayback()" />
+
+</body>
 </html>

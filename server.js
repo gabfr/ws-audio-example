@@ -17,7 +17,7 @@ wss.on('connection', function(ws) {
   var fileCount = 243;
   var currentFile = 0;
 
-  var buffer = new Buffer(MAX_BUFFER);
+  var buffer = new Buffer(MAX_BUFFER * 1.5);
   var bufferSize = 0;
 
   function fileHandler(error, data) {
@@ -27,14 +27,21 @@ wss.on('connection', function(ws) {
       
       console.log('Buffering ' + data.length + ' bytes MP3 data.');
       
-      if (bufferSize + data.length > MAX_BUFFER) {
-        console.log('Sending ' + bufferSize + ' bytes MP3 data.');
-        ws.send(buffer.slice(0, bufferSize), {binary: true});
-        bufferSize = 0;
-      }
-
       data.copy(buffer, bufferSize, 0);
       bufferSize += data.length;
+
+      if (bufferSize + data.length > MAX_BUFFER) {
+        console.log('Sending ' + bufferSize + ' bytes MP3 data.');
+
+        var temp = Buffer(bufferSize);
+        buffer.copy(temp, 0, 0, bufferSize);
+        
+        ws.send(temp, {binary: true});
+        bufferSize = 0;
+
+        data.copy(buffer, bufferSize, 0);
+        bufferSize += data.length;
+      }
 
       currentFile += 1;
       if (currentFile < fileCount) {
